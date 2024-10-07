@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 import os
 
 @st.cache_data
@@ -15,6 +16,28 @@ monthly_df = load_data(f'{script_dir}/monthly_df.csv')
 seasonal_df = load_data(f'{script_dir}/seasonal_df.csv')
 weather_cnt = load_data(f'{script_dir}/weather_cnt.csv')
 weekly_df = load_data(f'{script_dir}/weekly_df.csv')
+
+seasonal_df['season_'] = seasonal_df['season_'].replace({
+    1: "Springer",
+    2: "Summer",
+    3: "Fall",
+    4: "Winter"
+})
+weather_cnt["weathersit_"] = weather_cnt['weathersit_'].replace({
+    1: "Cerah",
+    2: "Berawan",
+    3: "Hujan Ringan",
+    4: "Hujan Lebat"
+})
+
+def exponential_smoothing(data, alpha):
+    smoothed_data = np.zeros(len(data) + 7)  # Ditambahkan 7 agar memberikan prediksi untuk 7 minggu ke depan
+    data = data.tolist() + np.zeros(7).tolist()  # Menggabungkan data asli dengan nol untuk prediksi
+    smoothed_data[0] = data[0]  # Nilai pertama menggunakan nilai dari data asli
+    for t in range(1, len(data)):
+        smoothed_data[t] = (alpha * data[t]) + ((1 - alpha) * smoothed_data[t - 1])
+        data[t] = smoothed_data[t]
+    return smoothed_data
 
 st.title("Dashboard Analisis Dataset Bike-Sharing")
 
@@ -35,6 +58,23 @@ with tab1:
     st.pyplot(plt)
     
     st.write("Grafik diatas adalah Jumlah Rental Sepeda Tiap Bulan, sumbu X menunjukkan bulan dan sumbu Y menunjukkan jumlah rental. Terlihat bahwa jumlah penggunaan sepeda meningkat dari awal tahun 2011 hingga pada akhir 2012")
+    st.markdown("<br>", unsafe_allow_html=True)  # Jarak antar grafik
+
+
+    # Diagram eksponensial smoothing
+    alpha = 0.1
+    smoothed_data = exponential_smoothing(np.array(weekly_df['cnt_mean']), alpha)
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(weekly_df['cnt_mean'], label='Data Asli')
+    plt.plot(smoothed_data, label=f'Exponential Smoothing (Alpha = {alpha})', color='orange')
+    plt.title('Exponential Smoothing pada Data Time Series')
+    plt.xlabel('Waktu')
+    plt.ylabel('Nilai')
+    plt.legend()
+    plt.tight_layout()
+    st.pyplot(plt)  # Menampilkan plot di Streamlit
+    st.write("Grafik di atas menunjukkan penerapan metode smoothing eksponensial pada data rental sepeda, dengan alpha = 0.1.")
 
 
 with tab2: 
